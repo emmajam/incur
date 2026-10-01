@@ -37,10 +37,24 @@ export type Config = {
   compact?: boolean | undefined
   /** Header names copied from the inbound request onto upstream requests when not explicitly set. */
   forwardHeaders?: string[] | undefined
+  /** Descriptions for generated command groups, keyed by space-separated command path (e.g. `{ v1: 'Version 1 API', 'v1 users': 'Manage users' }`). Overrides descriptions inferred from the document. */
+  groups?: Record<string, string> | undefined
+  /** Generates commands only for operations this returns `true` for, as if the document contained nothing else. Defaults to every operation. */
+  include?: ((operation: IncludeOperation) => boolean) | undefined
   /** Command naming strategy. Defaults to `'operation'`. */
   mode?: Mode | undefined
   /** Generates credential options from the document's `security` requirements. Defaults to `true`. */
   security?: boolean | undefined
+}
+
+/** An OpenAPI operation passed to `Config.include`. */
+export type IncludeOperation = {
+  /** Lowercase HTTP method (e.g. `get`). */
+  method: string
+  /** The operation object from the document. */
+  operation: Record<string, unknown>
+  /** Path template from the document (e.g. `/users/{id}`). */
+  path: string
 }
 
 /** Options for generating an OpenAPI document from an incur CLI. */
@@ -380,9 +394,12 @@ export async function generateCommands(
   const resolved = dereference(structuredClone(spec)) as OpenAPISpec
   const commands = new Map<string, GeneratedEntry>()
   const paths = (resolved.paths ?? {}) as Record<string, Record<string, unknown>>
-  const operations = openapiOperations(paths)
-  const namespaceInfo = getNamespaceInfo(operations)
   const { config } = options
+  // Filter before naming so commands read as if excluded operations were never in the document.
+  const operations = openapiOperations(paths).filter(
+    ({ method, operation, path }) => config?.include?.({ method, operation, path }) ?? true,
+  )
+  const namespaceInfo = getNamespaceInfo(operations)
   if (config?.compact) compactOperations(operations)
 
   for (const { method, operation: op, path } of operations) {
@@ -471,7 +488,22 @@ export async function generateCommands(
     })
   }
 
+  if (config?.groups) describeGroups(commands, config.groups)
   return commands
+}
+
+function describeGroups(commands: Map<string, GeneratedEntry>, groups: Record<string, string>) {
+  for (const [path, description] of Object.entries(groups)) {
+    let entries = commands
+    let group: GeneratedGroup | undefined
+    for (const name of path.trim().split(/\s+/)) {
+      const entry = entries.get(name)
+      group = entry && '_group' in entry ? entry : undefined
+      if (!group) break
+      entries = group.commands
+    }
+    if (group) group.description = description
+  }
 }
 
 function mcpAnnotations(method: string) {

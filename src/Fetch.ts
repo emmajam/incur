@@ -1,3 +1,5 @@
+import { isRecord } from './internal/helpers.js'
+
 /** Structured input parsed from curl-style argv. */
 export type FetchInput = {
   body: string | undefined
@@ -212,5 +214,38 @@ export async function parseResponse(response: Response): Promise<FetchOutput> {
     status: response.status,
     data,
     headers: response.headers,
+  }
+}
+
+/**
+ * Extracts an error code and message from a failed fetch output. Reads a top-level `message`
+ * or a nested `{ error: { code, message } }` envelope, falling back to the HTTP status.
+ */
+export function parseError(output: FetchOutput): parseError.ReturnType {
+  const { data, status } = output
+  const error = isRecord(data) && isRecord(data.error) ? data.error : undefined
+
+  const code = typeof error?.code === 'string' && error.code ? error.code : `HTTP_${status}`
+  const message = (() => {
+    // Top-level message (e.g. `{ message }`)
+    if (isRecord(data) && 'message' in data) return String(data.message)
+    // Nested error envelope (e.g. `{ error: { message } }`)
+    if (error && 'message' in error) return String(error.message)
+    // Plain-text body
+    if (typeof data === 'string') return data
+    // No usable message — fall back to the status
+    return `HTTP ${status}`
+  })()
+
+  return { code, message }
+}
+
+export declare namespace parseError {
+  /** Error code and message extracted from a failed response. */
+  type ReturnType = {
+    /** Upstream `error.code` when it is a string, otherwise `HTTP_<status>`. */
+    code: string
+    /** Human-readable error message. */
+    message: string
   }
 }

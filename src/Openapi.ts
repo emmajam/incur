@@ -835,16 +835,7 @@ function createHandler(config: {
     const response = await config.fetch(request)
     const output = await Fetch.parseResponse(response)
 
-    if (!output.ok)
-      return context.error({
-        code: `HTTP_${output.status}`,
-        message:
-          typeof output.data === 'object' && output.data !== null && 'message' in output.data
-            ? String((output.data as any).message)
-            : typeof output.data === 'string'
-              ? output.data
-              : `HTTP ${output.status}`,
-      })
+    if (!output.ok) return context.error(Fetch.parseError(output))
 
     return output.data
   }

@@ -320,6 +320,49 @@ describe('generateCommands', () => {
       ]
     `)
   })
+
+  test('include generates commands only for matching operations', async () => {
+    const included: string[] = []
+    const commands = await Openapi.generateCommands(spec, app.fetch, {
+      config: {
+        include: ({ method, path }) => {
+          included.push(`${method} ${path}`)
+          return path.startsWith('/users') && method === 'get'
+        },
+        mode: 'namespace',
+      },
+    })
+    expect(included.length).toBeGreaterThan(0)
+    expect([...commands.keys()]).toMatchInlineSnapshot(`
+      [
+        "users",
+      ]
+    `)
+
+    const users = commands.get('users')!
+    expect('_group' in users ? [...users.commands.keys()].sort() : []).toMatchInlineSnapshot(`
+      [
+        "get",
+        "id",
+      ]
+    `)
+  })
+
+  test('groups describes generated command groups', async () => {
+    const commands = await Openapi.generateCommands(spec, app.fetch, {
+      config: {
+        groups: { missing: 'Ignored', users: 'Manage users', 'users id': 'One user' },
+        mode: 'namespace',
+      },
+    })
+    const users = commands.get('users')!
+    expect('_group' in users ? users.description : undefined).toMatchInlineSnapshot(
+      `"Manage users"`,
+    )
+    const id = '_group' in users ? users.commands.get('id')! : undefined
+    expect(id && '_group' in id ? id.description : undefined).toMatchInlineSnapshot(`"One user"`)
+    expect(commands.has('missing')).toBe(false)
+  })
 })
 
 describe('cli integration', () => {

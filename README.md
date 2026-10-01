@@ -403,6 +403,24 @@ $ my-cli api users get --limit 5
 # → users: ...
 ```
 
+Use `openapiConfig.include` to generate commands for only some operations, and `openapiConfig.groups` to describe command groups the document cannot name:
+
+```ts
+Cli.create('my-cli', { description: 'My CLI' })
+  .command('api', {
+    fetch: app.fetch,
+    openapi: spec,
+    openapiConfig: {
+      groups: { users: 'Manage users' },
+      include: (o) => o.path.startsWith('/users'),
+      mode: 'namespace',
+    },
+  })
+  .serve()
+```
+
+Commands are named as if excluded operations were never in the document. Excluded operations stay reachable through the fetch gateway.
+
 When served with `cli.fetch`, the generated spec is available at `/openapi.json`, `/openapi.yml`, `/openapi.yaml`, and `/.well-known/openapi.json`. Methods are inferred from command names: read-like commands use `GET`, update-like commands use `PATCH`, delete-like commands use `DELETE`, and other commands use `POST`.
 
 #### MCP command sources

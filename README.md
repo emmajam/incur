@@ -412,7 +412,7 @@ Cli.create('my-cli', { description: 'My CLI' })
     openapi: spec,
     openapiConfig: {
       groups: { users: 'Manage users' },
-      include: ({ path }) => path.startsWith('/users'),
+      include: (o) => o.path.startsWith('/users'),
       mode: 'namespace',
     },
   })

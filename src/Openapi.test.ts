@@ -752,6 +752,37 @@ describe('cli integration', () => {
     const { exitCode } = await serve(createCli(), ['api', 'getUser'])
     expect(exitCode).toBe(1)
   })
+
+  test('nested error envelope surfaces upstream code and message', async () => {
+    const cli = Cli.create('test', { description: 'test' }).command('api', {
+      fetch: () =>
+        Response.json(
+          { error: { code: 'thing_not_found', message: 'Thing not found' } },
+          { status: 404 },
+        ),
+      openapi: {
+        openapi: '3.1.0',
+        info: { title: 'Test API', version: '1.0.0' },
+        paths: {
+          '/things/{id}': {
+            get: {
+              operationId: 'getThing',
+              parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+              responses: { '404': { description: 'Not found' } },
+            },
+          },
+        },
+      },
+    })
+    const { exitCode, output } = await serve(cli, ['api', 'getThing', 'abc', '--format', 'json'])
+    expect(exitCode).toBe(1)
+    expect(JSON.parse(output)).toMatchInlineSnapshot(`
+      {
+        "code": "thing_not_found",
+        "message": "Thing not found",
+      }
+    `)
+  })
 })
 
 describe('@hono/zod-openapi integration', () => {

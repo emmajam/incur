@@ -5041,6 +5041,24 @@ describe('fetch', async () => {
     expect(output).toContain('HTTP_404')
   })
 
+  test('nested error envelope surfaces upstream code and message', async () => {
+    const cli = Cli.create('test', { description: 'test' }).command('api', {
+      fetch: () =>
+        Response.json(
+          { error: { code: 'thing_not_found', message: 'Thing not found' } },
+          { status: 404 },
+        ),
+    })
+    const { exitCode, output } = await serve(cli, ['api', 'things', 'abc', '--format', 'json'])
+    expect(exitCode).toBe(1)
+    expect(JSON.parse(output)).toMatchInlineSnapshot(`
+      {
+        "code": "thing_not_found",
+        "message": "Thing not found",
+      }
+    `)
+  })
+
   test('--format json', async () => {
     const cli = Cli.create('test', { description: 'test' }).command('api', {
       fetch: app.fetch,

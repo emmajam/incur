@@ -1786,15 +1786,7 @@ async function serveImpl(
       } else {
         write({
           ok: false,
-          error: {
-            code: `HTTP_${output.status}`,
-            message:
-              typeof output.data === 'object' && output.data !== null && 'message' in output.data
-                ? String((output.data as any).message)
-                : typeof output.data === 'string'
-                  ? output.data
-                  : `HTTP ${output.status}`,
-          },
+          error: Fetch.parseError(output),
           meta: {
             command: path,
             duration: `${Math.round(performance.now() - start)}ms`,

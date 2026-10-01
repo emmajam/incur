@@ -240,6 +240,83 @@ describe('parseResponse', () => {
   })
 })
 
+describe('parseError', () => {
+  function output(data: unknown, status = 404): Fetch.FetchOutput {
+    return { ok: false, status, data, headers: new Headers() }
+  }
+
+  test('top-level message', () => {
+    expect(Fetch.parseError(output({ message: 'not found' }))).toMatchInlineSnapshot(`
+      {
+        "code": "HTTP_404",
+        "message": "not found",
+      }
+    `)
+  })
+
+  test('nested error envelope', () => {
+    expect(
+      Fetch.parseError(output({ error: { code: 'thing_not_found', message: 'Thing not found' } })),
+    ).toMatchInlineSnapshot(`
+      {
+        "code": "thing_not_found",
+        "message": "Thing not found",
+      }
+    `)
+  })
+
+  test('nested error without code keeps HTTP status code', () => {
+    expect(Fetch.parseError(output({ error: { message: 'Thing not found' } })))
+      .toMatchInlineSnapshot(`
+      {
+        "code": "HTTP_404",
+        "message": "Thing not found",
+      }
+    `)
+  })
+
+  test('non-string nested code keeps HTTP status code', () => {
+    expect(Fetch.parseError(output({ error: { code: 404, message: 'Thing not found' } })))
+      .toMatchInlineSnapshot(`
+      {
+        "code": "HTTP_404",
+        "message": "Thing not found",
+      }
+    `)
+  })
+
+  test('top-level message wins over nested message', () => {
+    expect(
+      Fetch.parseError(
+        output({ message: 'top', error: { code: 'nested_code', message: 'nested' } }),
+      ),
+    ).toMatchInlineSnapshot(`
+      {
+        "code": "nested_code",
+        "message": "top",
+      }
+    `)
+  })
+
+  test('text body', () => {
+    expect(Fetch.parseError(output('Bad Gateway', 502))).toMatchInlineSnapshot(`
+      {
+        "code": "HTTP_502",
+        "message": "Bad Gateway",
+      }
+    `)
+  })
+
+  test('falls back to status', () => {
+    expect(Fetch.parseError(output({ error: 'nope' }, 500))).toMatchInlineSnapshot(`
+      {
+        "code": "HTTP_500",
+        "message": "HTTP 500",
+      }
+    `)
+  })
+})
+
 describe('round-trip with Hono', () => {
   test('GET /users', async () => {
     const input = Fetch.parseArgv(['users'])

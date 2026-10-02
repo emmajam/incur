@@ -23,7 +23,14 @@ export type OpenAPISpec = {
   openapi?: string | undefined
   paths?: {} | undefined
   security?: readonly SecurityRequirement[] | undefined
-  tags?: readonly { description?: string | undefined; name: string }[] | undefined
+  tags?:
+    | readonly {
+        description?: string | undefined
+        name: string
+        /** CLI-specific group description, preferred over `description` by `Config.groupsFromTags`. */
+        'x-cli-description'?: string | undefined
+      }[]
+    | undefined
 }
 
 /** OpenAPI document source accepted by fetch-backed CLI commands. */
@@ -40,7 +47,7 @@ export type Config = {
   forwardHeaders?: string[] | undefined
   /** Descriptions for generated command groups, keyed by space-separated command path (e.g. `{ v1: 'Version 1 API', 'v1 users': 'Manage users' }`). Overrides descriptions inferred from the document. */
   groups?: Record<string, string> | undefined
-  /** Describes namespace-mode groups with the first sentence of a tag description: the tag every operation in the group shares, or else the tag on the group's own operations. `groups` takes precedence. Defaults to `false`. */
+  /** Describes namespace-mode groups from a tag: the one every operation in the group shares, or else the one on the group's own operations. Uses the tag's `x-cli-description`, falling back to its description's first sentence. `groups` takes precedence. Defaults to `false`. */
   groupsFromTags?: boolean | undefined
   /** Generates commands only for operations this returns `true` for, as if the document contained nothing else. Defaults to every operation. */
   include?: ((operation: IncludeOperation) => boolean) | undefined
@@ -518,7 +525,13 @@ function describeGroupsFromTags(
   placements: Placement[],
   tags: NonNullable<OpenAPISpec['tags']>,
 ) {
-  const descriptions = new Map(tags.map((tag) => [tag.name, tag.description]))
+  const descriptions = new Map(
+    tags.map((tag) => [
+      tag.name,
+      // Help lists one line per group, so a document-oriented description contributes its first sentence.
+      tag['x-cli-description'] ?? tag.description?.split(/(?<=[.!?])\s+/)[0],
+    ]),
+  )
   const groups = new Map<
     string,
     { all: Placement[]; own: Placement[]; segments: CommandSegment[] }
@@ -542,8 +555,7 @@ function describeGroupsFromTags(
     // Path parameter groups keep the parameter's own description.
     if (segments.at(-1)!.parameter) continue
     const tag = sharedTag(all) ?? sharedTag(own)
-    // Help lists one line per group, so keep the tag description's first sentence.
-    const description = tag ? descriptions.get(tag)?.split(/(?<=[.!?])\s+/)[0] : undefined
+    const description = tag ? descriptions.get(tag) : undefined
     const group = description
       ? findGroup(
           commands,

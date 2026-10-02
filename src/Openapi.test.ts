@@ -364,12 +364,16 @@ describe('generateCommands', () => {
     expect(commands.has('missing')).toBe(false)
   })
 
-  test('groupsFromTags describes groups from shared or own-path tags', async () => {
+  test('groupsFromTags describes groups from shared or own-path tags, preferring x-cli-description', async () => {
     const taggedSpec = {
       openapi: '3.0.0',
       info: { title: 'Test API', version: '1.0.0' },
       tags: [
-        { name: 'Accounts', description: 'Customer accounts.' },
+        {
+          name: 'Accounts',
+          description: 'Customer accounts.',
+          'x-cli-description': 'Manage customer accounts.',
+        },
         { name: 'Activity', description: 'Account activity.' },
         { name: 'Inventory', description: 'Store inventory.' },
         { name: 'Orders', description: 'Store orders.' },
@@ -422,7 +426,7 @@ describe('generateCommands', () => {
     `)
     expect(await describe({ groupsFromTags: true, mode: 'namespace' })).toMatchInlineSnapshot(`
       {
-        "accounts": "Customer accounts.",
+        "accounts": "Manage customer accounts.",
         "petId": "Pet ID",
         "pets": "Pets for adoption.",
         "stores": undefined,
@@ -432,7 +436,7 @@ describe('generateCommands', () => {
       await describe({ groups: { pets: 'Adopt a pet' }, groupsFromTags: true, mode: 'namespace' }),
     ).toMatchInlineSnapshot(`
       {
-        "accounts": "Customer accounts.",
+        "accounts": "Manage customer accounts.",
         "petId": "Pet ID",
         "pets": "Adopt a pet",
         "stores": undefined,

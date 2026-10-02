@@ -421,6 +421,8 @@ Cli.create('my-cli', { description: 'My CLI' })
 
 Commands are named as if excluded operations were never in the document. Excluded operations stay reachable through the fetch gateway.
 
+Set `openapiConfig.groupsFromTags` to describe groups from the document's tags instead of a leaf operation's summary. A group takes the first sentence of the tag every operation in it shares, or else of the tag on the operations at its own path. Path parameter groups keep their parameter description, and `groups` entries take precedence.
+
 When served with `cli.fetch`, the generated spec is available at `/openapi.json`, `/openapi.yml`, `/openapi.yaml`, and `/.well-known/openapi.json`. Methods are inferred from command names: read-like commands use `GET`, update-like commands use `PATCH`, delete-like commands use `DELETE`, and other commands use `POST`.
 
 #### MCP command sources
